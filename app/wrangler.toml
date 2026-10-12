@@ -1,0 +1,28 @@
+# Cloudflare Pages + Pages Functions の設定。
+# デプロイ手順は README.md「公開手順（Cloudflare Pages）」を参照。
+
+name = "rag-bot"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 静的UI(public/)を配信し、functions/ を Pages Functions として動かす。
+pages_build_output_dir = "public"
+
+# --- 本番でベクトル検索に使う Cloudflare Workers AI（埋め込み生成）---
+# デモモードでは不要。DEMO_MODE=false（本番）にする場合に有効化する。
+[ai]
+binding = "AI"
+
+# --- 規模が大きい場合のベクトルストア（任意）---
+# 小規模ならインメモリで足りる。大量文書なら Vectorize を使う想定。
+# 使う場合はコメントを外し、`wrangler vectorize create rag-bot-index --dimensions=1024 --metric=cosine` 済みのインデックス名を指定。
+# [[vectorize]]
+# binding = "VECTORIZE"
+# index_name = "rag-bot-index"
+
+# --- 環境変数（機微でないもの）---
+# 機微な値（CLAUDE_API_KEY / ACCESS_PASSPHRASE）は wrangler secret / ダッシュボードで設定し、
+# ここ（＝Git管理されるファイル）には絶対に書かない。
+[vars]
+DEMO_MODE = "true"
+CLAUDE_MODEL = "claude-opus-4-8"

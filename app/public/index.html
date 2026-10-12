@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>社内ナレッジAIボット 実演サンプル（RAG）</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --panel:#f5f5f5;
+    --ink:#0f0e12;
+    --gray-1:#4d4d4d;
+    --gray-2:#7f7f7f;
+    --gray-3:#b2b2b2;
+    --accent:#ff4e00;
+    --link:#0071bb;
+    --lcd-bg:#272727;
+    --lcd-text:#f5f5f5;
+    --ui:"Helvetica Neue",Helvetica,Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","Roboto Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--ui);
+    line-height:1.6;-webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:24px 16px 72px}
+  .lbl{font-family:var(--ui);text-transform:lowercase;letter-spacing:.02em;color:var(--gray-2);font-size:12px}
+
+  /* demo flag: LCD風の帯 */
+  .demo-flag{background:var(--lcd-bg);color:var(--lcd-text);font-size:12.5px;padding:10px 14px;margin-bottom:20px;font-family:var(--mono)}
+  .demo-flag b{color:#fff}
+
+  header.top{border-bottom:1px solid var(--gray-3);padding-bottom:14px;margin-bottom:18px}
+  header.top h1{font-size:32px;font-weight:300;margin:0 0 4px}
+  header.top p{margin:0;color:var(--gray-1);font-size:14px}
+
+  /* パスワードゲート */
+  .gate{background:var(--panel);border-bottom:2px solid var(--gray-1);padding:14px;margin-bottom:18px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .gate .field{flex:1;min-width:180px}
+  .gate label{display:block;margin-bottom:4px}
+  input,button,textarea{font-family:var(--ui);font-size:14px;border-radius:0}
+  input[type=text],input[type=password]{width:100%;border:1px solid var(--gray-3);background:#fff;padding:9px 11px}
+  .btn{border:1px solid var(--ink);background:var(--ink);color:#fff;padding:9px 16px;cursor:pointer;text-transform:lowercase;letter-spacing:.02em}
+  .btn:hover{background:#fff;color:var(--ink)}
+  .btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--gray-3)}
+  .btn.ghost:hover{background:#fff}
+  .btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.accent:hover{background:#fff;color:var(--accent);border-color:var(--accent)}
+
+  /* LCD 風の状態表示 */
+  .readout{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--gray-3);border:1px solid var(--gray-3);margin-bottom:16px}
+  .readout .cell{background:var(--lcd-bg);padding:8px 10px}
+  .readout .cell .k{font-family:var(--ui);text-transform:lowercase;font-size:10.5px;color:var(--gray-3);letter-spacing:.04em}
+  .readout .cell .v{font-family:var(--mono);font-size:16px;color:var(--lcd-text);margin-top:2px}
+  .dot{display:inline-block;width:8px;height:8px;background:var(--accent);vertical-align:middle;margin-right:6px}
+
+  /* チャット */
+  .card{background:#fff;border:1px solid var(--gray-3)}
+  .card .head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--gray-3)}
+  .card .head .name{font-size:14px}
+  .card .head .status{font-size:11.5px;color:var(--gray-1);font-family:var(--mono)}
+  .log{padding:14px;min-height:220px;max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:88%;padding:10px 13px;font-size:14px;white-space:pre-wrap;word-break:break-word}
+  .msg.user{align-self:flex-end;background:var(--ink);color:#fff}
+  .msg.bot{align-self:flex-start;background:var(--panel);border-bottom:2px solid var(--gray-3)}
+  .msg.bot.nofound{border-bottom-color:var(--gray-1)}
+  .cite{margin-top:8px;border-top:1px solid var(--gray-3);padding-top:7px}
+  .cite .cite-h{font-family:var(--ui);text-transform:lowercase;font-size:10.5px;color:var(--gray-2);letter-spacing:.04em;margin-bottom:4px}
+  .cite ul{margin:0;padding-left:0;list-style:none}
+  .cite li{font-size:12.5px;color:var(--gray-1);padding:2px 0;display:flex;justify-content:space-between;gap:10px}
+  .cite li .loc{color:var(--ink)}
+  .cite li .sc{font-family:var(--mono);color:var(--gray-2)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:0 14px 12px}
+  .chip{background:var(--panel);border:1px solid var(--gray-3);padding:6px 11px;font-size:12.5px;color:var(--gray-1);cursor:pointer}
+  .chip:hover{border-color:var(--ink);color:var(--ink)}
+  .inbar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--gray-3)}
+  .inbar input{flex:1}
+
+  section.block{margin-top:34px}
+  section.block h2{font-size:19px;font-weight:300;margin:0 0 6px}
+  section.block p.note{font-size:13px;color:var(--gray-1);margin:0 0 12px}
+  .docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1px;background:var(--gray-3);border:1px solid var(--gray-3)}
+  .docs .d{background:#fff;padding:11px 12px}
+  .docs .d .t{font-size:13.5px}
+  .docs .d .s{font-size:11.5px;color:var(--gray-2);margin-top:3px}
+  .proof{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1px;background:var(--gray-3);border:1px solid var(--gray-3)}
+  .proof a{display:block;text-decoration:none;color:var(--ink);background:#fff;padding:12px 13px}
+  .proof a:hover{background:var(--panel)}
+  .proof .t{font-size:13.5px}
+  .proof .u{font-size:11.5px;color:var(--gray-2);margin-top:3px;word-break:break-all;font-family:var(--mono)}
+  footer{margin-top:40px;border-top:1px solid var(--gray-3);padding-top:16px;font-size:12px;color:var(--gray-2)}
+  code.k{background:var(--panel);padding:1px 5px;font-family:var(--mono);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="demo-flag">
+    これは <b>実演サンプル（デモ）</b>です。架空の会社「サンプル商事」の社内文書（就業規則・経費規程・議事録）を題材に、
+    <b>社員が社内文書へ質問し、出典付きで答えを得る</b>挙動をお見せします。<b>APIキー不要で試せるよう、このデモはAIを載せずに動いています</b>。
+    そのため検索は<b>意味ではなくキーワードの一致</b>で行われ、質問の意図とずれた箇所を拾うことがあります。<b>本番はAI（意味を汲む検索＋Claude）を搭載する</b>ため、
+    キーワードではなく質問の意味で探し、精度が上がります。ご依頼後は、あなたの実際の社内文書に合わせて本実装します。
+  </div>
+
+  <header class="top">
+    <h1>社内ナレッジAIボット</h1>
+    <p>就業規則・マニュアル・議事録などの社内文書に、出典付きで答える内部向けチャット（RAG）</p>
+  </header>
+
+  <!-- パスワードゲート（社内限定アクセス） -->
+  <div class="gate">
+    <div class="field">
+      <label class="lbl" for="pass">access password（パスワード）</label>
+      <input id="pass" type="password" value="demo" autocomplete="off" placeholder="パスワードを入力">
+    </div>
+    <button id="unlock" class="btn ghost" type="button">unlock</button>
+    <span class="lbl" id="gateState">デモのパスワードは <code class="k">demo</code></span>
+  </div>
+
+  <!-- LCD風 状態表示 -->
+  <div class="readout" aria-hidden="true">
+    <div class="cell"><div class="k">mode</div><div class="v" id="rmode">demo</div></div>
+    <div class="cell"><div class="k">sources hit</div><div class="v" id="rhit">0</div></div>
+    <div class="cell"><div class="k">top score</div><div class="v" id="rscore">0.00</div></div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="name"><span class="dot"></span>社内ナレッジ ボット</div>
+      <div class="status" id="status">ready</div>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="chips" id="chips"></div>
+    <div class="inbar">
+      <input id="q" type="text" placeholder="質問を入力（例：有給休暇は何日もらえますか？）" autocomplete="off">
+      <button id="send" class="btn accent" type="button">send</button>
+    </div>
+  </div>
+
+  <section class="block">
+    <h2>読み込ませているサンプル文書</h2>
+    <p class="note">下記はこのデモ用に書き下ろした架空の社内文書です（実在の企業・規則ではありません）。本番は使う会社の文書に差し替えます。</p>
+    <div class="docs" id="docs"></div>
+  </section>
+
+
+  <footer>
+    実演サンプル ver.1／制作：Mxhlix。<br>
+    このデモは通信せず、ブラウザ→サーバ内の簡易検索＋抽出で「出典付き回答の形」をお見せしています。
+    本番では <code class="k">DEMO_MODE=false</code> ＋ APIキー設定で、検索の該当箇所を Claude（<code class="k">claude-opus-4-8</code>）に渡して回答を生成します。
+    回答が正しいかは、必ず表示される出典（文書名・第N条/見出し）で裏取りできる設計です。
+  </footer>
+
+</div>
+
+<script>
+"use strict";
+
+var SAMPLE_DOCS = [
+  { t:"就業規則（抜粋・架空）", s:"所定労働時間 / 年次有給休暇 / 慶弔休暇 / テレワーク" },
+  { t:"経費精算規程（抜粋・架空）", s:"申請期限 / 交通費 / 宿泊費上限 / 会議費・交際費" },
+  { t:"製品企画定例 議事録（架空）", s:"リリース時期 / 価格改定 / サポート体制" }
+];
+var CHIPS = [
+  "有給休暇は何日もらえますか？",
+  "テレワークは週何日まで？",
+  "出張の宿泊費の上限は？",
+  "経費精算の締め切りはいつ？",
+  "新機能のリリース時期は？",
+  "来週の東京の天気は？"
+];
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+var logEl = document.getElementById("log");
+var qEl = document.getElementById("q");
+var passEl = document.getElementById("pass");
+var statusEl = document.getElementById("status");
+
+function push(role, html){
+  var d = document.createElement("div");
+  d.className = "msg " + role;
+  d.innerHTML = html;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+  return d;
+}
+
+function renderCitations(citations){
+  if(!citations || !citations.length) return "";
+  var items = citations.map(function(c){
+    return '<li><span class="loc">'+esc(c.document)+' ／ '+esc(c.location)+'</span><span class="sc">'+esc(String(c.score))+'</span></li>';
+  }).join("");
+  return '<div class="cite"><div class="cite-h">出典（この回答の根拠）</div><ul>'+items+'</ul></div>';
+}
+
+function setReadout(mode, citations){
+  document.getElementById("rmode").textContent = mode || "demo";
+  document.getElementById("rhit").textContent = citations ? citations.length : 0;
+  var top = (citations && citations.length) ? citations[0].score : 0;
+  document.getElementById("rscore").textContent = Number(top).toFixed(2);
+}
+
+async function ask(text){
+  var q = (text != null ? text : qEl.value).trim();
+  if(!q) return;
+  qEl.value = "";
+  push("user", esc(q));
+  statusEl.textContent = "searching…";
+  try{
+    var res = await fetch("/api/chat", {
+      method:"POST",
+      headers:{"content-type":"application/json"},
+      body: JSON.stringify({ question:q, passphrase: passEl.value })
+    });
+    var data = await res.json();
+    if(res.status === 401){
+      push("bot nofound", "パスワードが正しくありません。上の欄をご確認ください。");
+      statusEl.textContent = "locked";
+      return;
+    }
+    if(!res.ok){
+      push("bot nofound", esc(data.error || "エラーが発生しました。"));
+      statusEl.textContent = "error";
+      return;
+    }
+    var cls = data.grounded ? "bot" : "bot nofound";
+    push(cls, esc(data.answer) + renderCitations(data.citations));
+    setReadout(data.mode, data.citations);
+    statusEl.textContent = data.grounded ? "answered" : "no source found";
+  }catch(e){
+    push("bot nofound", "通信に失敗しました。サーバが起動しているかご確認ください。");
+    statusEl.textContent = "error";
+  }
+}
+
+document.getElementById("send").addEventListener("click", function(){ ask(); });
+qEl.addEventListener("keydown", function(e){ if(e.key === "Enter") ask(); });
+document.getElementById("unlock").addEventListener("click", function(){
+  document.getElementById("gateState").textContent = "パスワードを設定しました。質問できます。";
+});
+
+(function(){
+  var c = document.getElementById("chips");
+  CHIPS.forEach(function(t){
+    var b = document.createElement("span");
+    b.className = "chip"; b.textContent = t;
+    b.addEventListener("click", function(){ ask(t); });
+    c.appendChild(b);
+  });
+  var d = document.getElementById("docs");
+  SAMPLE_DOCS.forEach(function(doc){
+    var el = document.createElement("div");
+    el.className = "d";
+    el.innerHTML = '<div class="t">'+esc(doc.t)+'</div><div class="s">'+esc(doc.s)+'</div>';
+    d.appendChild(el);
+  });
+  push("bot", "こんにちは。サンプル商事の社内文書について、就業規則・経費・議事録などをお尋ねください。答えには必ず出典を添えます。");
+})();
+</script>
+</body>
+</html>

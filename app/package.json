@@ -1,0 +1,21 @@
+{
+  "name": "rag-bot-sample",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "社内文書ナレッジAIチャットボット（RAG）実演サンプル。デモモードでAPIキー無しに取り込み→分割→埋め込み→検索→出典付き回答を通す。",
+  "scripts": {
+    "serve": "node server.mjs",
+    "test": "node test/verify.mjs",
+    "verify": "node test/verify.mjs",
+    "build": "node build.mjs",
+    "dev:cf": "wrangler pages dev public --compatibility-flags=nodejs_compat"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^6.4.299"
+  }
+}

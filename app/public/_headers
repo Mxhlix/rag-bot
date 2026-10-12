@@ -1,0 +1,8 @@
+# Cloudflare Pages のセキュリティヘッダ。静的UI(public/)配信時に付与される。
+# UIは自己完結（インラインCSS/JS・外部スクリプト無し）のため、self + unsafe-inline で成立する。
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
